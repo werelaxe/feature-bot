@@ -9,14 +9,14 @@ import (
 const Operations string = "+-/*"
 
 var OperationFunctions = map[uint8]interface{}{
-	'+': func(a, b int) int {
-		return a + b
+	'+': func(a, b int) float64 {
+		return float64(a + b)
 	},
-	'-': func(a, b int) int {
-		return a - b
+	'-': func(a, b int) float64 {
+		return float64(a - b)
 	},
-	'*': func(a, b int) int {
-		return a * b
+	'*': func(a, b int) float64 {
+		return float64(a * b)
 	},
 	'/': func(a, b int) float64 {
 		return float64(a) / float64(b)
@@ -25,7 +25,7 @@ var OperationFunctions = map[uint8]interface{}{
 
 func GenExpression() string {
 	operation := Operations[rand.Intn(len(Operations))]
-	operationFunc := OperationFunctions[operation].(func(int, int) int)
+	operationFunc := OperationFunctions[operation].(func(int, int) float64)
 	a := rand.Intn(100)
 	b := rand.Intn(100)
 	return fmt.Sprintf("%v %c %v = %v", a, operation, b, operationFunc(a, b))
