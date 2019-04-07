@@ -11,7 +11,7 @@ import (
 )
 
 const ConfigPath = "config"
-const TimeToSleep = time.Second * 0
+const TimeToSleep = time.Second * 3
 const CoolDown = 60 * 24
 const CallingInterval = time.Second * 60
 var infoKeeper InfoKeeper
