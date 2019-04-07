@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
 
 func buildMembersMessage(info *Info) string {
@@ -28,14 +29,14 @@ func getSuffix(cnt int) string {
 }
 
 func formatName(name string, maxLen int) string {
-	return name + strings.Repeat(" ", maxLen-len(name))
+	return name + strings.Repeat(" ", maxLen-utf8.RuneCountInString(name))
 }
 
 func buildStatMessage(info *Info, sorted bool) string {
 	maxLen := -1
 	for _, user := range info.Users {
-		if len(user.Name) > maxLen {
-			maxLen = len(user.Name)
+		if utf8.RuneCountInString(user.Name) > maxLen {
+			maxLen = utf8.RuneCountInString(user.Name)
 		}
 	}
 	var users []User
