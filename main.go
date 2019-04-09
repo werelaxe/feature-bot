@@ -14,6 +14,7 @@ const ConfigPath = "config"
 const TimeToSleep = time.Second * 3
 const CoolDown = 60 * 24
 const CallingInterval = time.Second * 60
+
 var infoKeeper InfoKeeper
 var config Config
 var FeaturePattern = regexp.MustCompile("/set\\s(.+)")
@@ -30,7 +31,6 @@ const StartText = `Привет! Я бот для определения осо�
 /join — добавить себя во множество людей, которые могут быть особенными;
 /ping — проверить работоспособность бота.
 `
-
 
 func getUserCallName(user *tgbotapi.User) string {
 	if user.UserName == "" {
@@ -303,6 +303,30 @@ func handleChatId(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 	}
 }
 
+func handleTimeLeft(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
+	chatId := update.Message.Chat.ID
+	if !infoKeeper.IsChatJoined(chatId) {
+		return
+	}
+	info, err := infoKeeper.Read(chatId)
+	if err != nil {
+		log.Println("Handle spin error: " + err.Error())
+		return
+	}
+	currentTime := time.Now().Unix()
+	timeLeft := (24 * 60 * 60) - (currentTime - info.LastSpinTime)
+	var responseMessage string
+	if timeLeft > 0 {
+		responseMessage = fmt.Sprintf("Следующий возможный spin через %v секунд", timeLeft)
+	} else {
+		responseMessage = fmt.Sprintf("Следующий возможный spin можно сделать прямо сейчас!")
+	}
+	if _, err := bot.Send(tgbotapi.NewMessage(chatId, responseMessage)); err != nil {
+		log.Println("Handle set feature error: " + err.Error())
+		return
+	}
+}
+
 func callSpin(bot *tgbotapi.BotAPI) {
 	for {
 		chatIds, err := infoKeeper.GetChats()
@@ -319,7 +343,7 @@ func callSpin(bot *tgbotapi.BotAPI) {
 			if timeDiff < CoolDown || len(info.Users) == 0 {
 				continue
 			}
-			if rand.Float32() < float32(1) / (24 * 30) {
+			if rand.Float32() < float32(1)/(24*30) {
 				var userIds []int
 				for newUserId := range info.Users {
 					userIds = append(userIds, newUserId)
@@ -336,18 +360,19 @@ func callSpin(bot *tgbotapi.BotAPI) {
 	}
 }
 
-var handlers = map[string]interface{} {
-	"/start": handleStart,
-	"/help": handleStart,
-	"/spin": handleSpin,
-	"/join": handleJoin,
+var handlers = map[string]interface{}{
+	"/start":   handleStart,
+	"/help":    handleStart,
+	"/spin":    handleSpin,
+	"/join":    handleJoin,
 	"/members": handleMembers,
-	"/set": handleSetFeature,
-	"/stat": handleStat,
-	"/top": handleTop,
-	"/reset": handleResetDay,
-	"/ping": handlePing,
+	"/set":     handleSetFeature,
+	"/stat":    handleStat,
+	"/top":     handleTop,
+	"/reset":   handleResetDay,
+	"/ping":    handlePing,
 	"/chat_id": handleChatId,
+	"/tl": handleTimeLeft,
 }
 
 func main() {
