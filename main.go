@@ -25,7 +25,7 @@ const StartText = `Привет! Я бот для определения осо�
 /spin — определение особенного человека;
 /set — установка особенности;
 /stat — показать статистику особенных людей;
-/stat — показать топ особенных людей;
+/top — показать топ особенных людей;
 /members — показать людей, которые могут быть особенными;
 /chat_id — показать id чата;
 /join — добавить себя во множество людей, которые могут быть особенными;
@@ -47,8 +47,26 @@ func handleStart(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 	}
 }
 
-func handleSpin(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
+func handleSpin(bot *tgbotapi.BotAPI, update *tgbotapi.Update, locker *Locker) {
 	chatId := update.Message.Chat.ID
+	locker.mux.Lock()
+	val, ok := locker.locks[chatId]
+	if val && ok {
+		locker.mux.Unlock()
+		if _, err := bot.Send(tgbotapi.NewMessage(chatId, "Не мешай, я тут вычисляю!")); err != nil {
+			log.Println("Handle spin error: " + err.Error())
+		}
+		return
+	}
+	locker.locks[chatId] = true
+	locker.mux.Unlock()
+
+	defer func() {
+		locker.mux.Lock()
+		locker.locks[chatId] = false
+		locker.mux.Unlock()
+	}()
+
 	if !infoKeeper.IsChatJoined(chatId) {
 		if _, err := bot.Send(tgbotapi.NewMessage(chatId, "Нельзя выбирать человека из пустого множества.")); err != nil {
 			log.Println("Handle spin error: " + err.Error())
@@ -208,8 +226,27 @@ func handleMembers(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 	}
 }
 
-func handleSetFeature(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
+func handleSetFeature(bot *tgbotapi.BotAPI, update *tgbotapi.Update, locker *Locker) {
 	chatId := update.Message.Chat.ID
+	locker.mux.Lock()
+	val, ok := locker.locks[chatId]
+	if val && ok {
+		locker.mux.Unlock()
+		if _, err := bot.Send(tgbotapi.NewMessage(chatId, "Не мешай, я тут вычисляю!")); err != nil {
+			log.Println("Handle set feature error: " + err.Error())
+		}
+		return
+	}
+	locker.locks[chatId] = true
+	locker.mux.Unlock()
+
+	defer func() {
+		locker.mux.Lock()
+		locker.locks[chatId] = false
+		locker.mux.Unlock()
+	}()
+
+
 	message := update.Message.Text
 	var responseMessage string
 	if !infoKeeper.IsChatJoined(chatId) {
@@ -224,7 +261,7 @@ func handleSetFeature(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 			responseMessage = fmt.Sprintf("Текущая особенность: %v.", info.Feature)
 		} else {
 			if FeaturePattern.MatchString(message) {
-				newFeature := message[len("/set"):]
+				newFeature := message[len("/set "):]
 				responseMessage = fmt.Sprintf("Особенность сменена на %v.", newFeature)
 				info.Feature = newFeature
 				if err := infoKeeper.Write(chatId, info); err != nil {
@@ -364,27 +401,32 @@ func callSpin(bot *tgbotapi.BotAPI) {
 var handlers = map[string]interface{}{
 	"/start":   handleStart,
 	"/help":    handleStart,
-	"/spin":    handleSpin,
 	"/join":    handleJoin,
 	"/members": handleMembers,
-	"/set":     handleSetFeature,
 	"/stat":    handleStat,
 	"/top":     handleTop,
 	"/reset":   handleResetDay,
 	"/ping":    handlePing,
 	"/chat_id": handleChatId,
-	"/tl": handleTimeLeft,
+	"/tl":      handleTimeLeft,
+}
+
+var parallelHandlers = map[string]interface{}{
+	"/spin": handleSpin,
+	"/set":  handleSetFeature,
 }
 
 func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
 	configPtr, err := ParseConfig(ConfigPath)
-	config = *configPtr
 	if err != nil {
 		panic(err)
 	}
+	config = *configPtr
 	infoKeeper.Init(config.StoragePath)
-
+	locker := Locker{
+		locks: make(map[int64]bool),
+	}
 	bot, err := tgbotapi.NewBotAPI(config.Token)
 	if err != nil {
 		log.Panic(err)
@@ -410,6 +452,9 @@ func main() {
 		command := strings.Split(update.Message.Text, " ")[0]
 		if handler, ok := handlers[command]; ok {
 			handler.(func(*tgbotapi.BotAPI, *tgbotapi.Update))(bot, &update)
+		}
+		if handler, ok := parallelHandlers[command]; ok {
+			go handler.(func(*tgbotapi.BotAPI, *tgbotapi.Update, *Locker))(bot, &update, &locker)
 		}
 	}
 }
