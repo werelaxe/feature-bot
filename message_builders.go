@@ -29,6 +29,9 @@ func getSuffix(cnt int) string {
 }
 
 func formatName(name string, maxLen int) string {
+	if strings.Contains(name, "𝚘𝚗𝚊𝚝𝚊") {
+		name = "Миша"
+	}
 	return name + strings.Repeat(" ", maxLen-utf8.RuneCountInString(name))
 }
 
@@ -53,5 +56,8 @@ func buildStatMessage(info *Info, sorted bool) string {
 		statLines = append(statLines, fmt.Sprintf("%v : %v раз%v", formatName(user.Name, maxLen), user.Count, getSuffix(user.Count)))
 	}
 	stat := strings.Join(statLines, "\n")
-	return fmt.Sprintf("Статистика по человекам с особенностью %v:\n`%v`", info.Feature, stat)
+	feature := strings.Replace(info.Feature, "_", "\\_", -1)
+	feature = strings.Replace(feature, "*", "\\*", -1)
+	return fmt.Sprintf("Статистика по человекам с особенностью %v:\n`%v`", feature, stat)
 }
+

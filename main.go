@@ -6,7 +6,6 @@ import (
 	"log"
 	"math/rand"
 	"regexp"
-	"strings"
 	"time"
 )
 
@@ -18,6 +17,7 @@ const CallingInterval = time.Second * 60
 var infoKeeper InfoKeeper
 var config Config
 var FeaturePattern = regexp.MustCompile("/set\\s(.+)")
+var commandSep = regexp.MustCompile("[\\s@]")
 
 const StartText = `Привет! Я бот для определения особенных людей!
 Список команд:
@@ -449,7 +449,7 @@ func main() {
 		if update.Message == nil {
 			continue
 		}
-		command := strings.Split(update.Message.Text, " ")[0]
+		command := commandSep.Split(update.Message.Text, -1)[0]
 		if handler, ok := handlers[command]; ok {
 			handler.(func(*tgbotapi.BotAPI, *tgbotapi.Update))(bot, &update)
 		}
